@@ -1,0 +1,22 @@
+server:
+  port: 8080
+
+spring:
+  data:
+    mongodb:
+      uri: ${MONGO_URI:mongodb://localhost:27017}
+      database: ${MONGO_DB:prs}
+
+temporal:
+  target: ${TEMPORAL_TARGET:localhost:7233}
+  taskQueue: ${TEMPORAL_CREATE_PATIENT_TASK_QUEUE:prs-create-patient-task-queue}
+  workflowTimeoutSeconds: ${TRANSACTION_TIMEOUT_SECONDS:60}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

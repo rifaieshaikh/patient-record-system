@@ -1,0 +1,80 @@
+spring:
+  data:
+    mongodb:
+      uri: ${MONGO_URI:mongodb://localhost:27017}
+      database: ${MONGO_DB:prs}
+  temporal:
+    connection:
+      target:  ${TEMPORAL_TARGET:localhost:7233}
+    namespace: ${TEMPORAL_NAMESPACE:default}
+    workers:
+      - task-queue: ${TEMPORAL_CREATE_PATIENT_TASK_QUEUE:prs-create-patient-task-queue}
+        workflow-classes:
+          - com.prs.worker.workflows.CreatePatientWorkflowImpl
+        activity-beans:
+          - CreatePatientActivityImpl
+          - TransactionRequestActivityImpl
+  cloud:
+    openfeign:
+      client:
+        config:
+          default:
+            connect-timeout: 3000
+            read-timeout: 5000
+            logger-level: basic
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      patientApi:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 3s
+        minimumNumberOfCalls: 10
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+      medicalRecordApi:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 3s
+        minimumNumberOfCalls: 10
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+      insuranceDetailApi:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        failureRateThreshold: 50
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 3s
+        minimumNumberOfCalls: 10
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 3
+
+server:
+  port: 8081
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always  # optional; helpful in containers
+
+logging:
+  level:
+    root: INFO
+    com.prs: DEBUG
+
+api:
+  patient:
+    base-url: https://crudcrud.com/api/fca12907752b49b28d678f478e1a2763/patients
+  medical-record:
+    base-url: https://crudcrud.com/api/fca12907752b49b28d678f478e1a2763/medical-records
+  insurance-detail:
+    base-url: https://crudcrud.com/api/fca12907752b49b28d678f478e1a2763/insurance-details
