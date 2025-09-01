@@ -283,7 +283,7 @@ docker-compose restart worker
 
 ### Create Patient Transaction
 
-**POST** `/api/v1/transaction-requests`
+**POST** `/api/transactions/create`
 
 Request Body:
 ```json
