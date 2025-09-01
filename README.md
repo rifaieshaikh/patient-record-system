@@ -1,17 +1,59 @@
-# Patient Record System - Startup Guide
+# Patient Record Saga (Temporal) — Maps to 3-API Transaction with Compensations
 
-## 🏥 Project Overview
+This repo implements a **Temporal Saga** orchestrating **three external APIs** with:
+- a **global transaction timeout**,
+- **compensating actions** when any step fails or when the timeout is exceeded,
+- a **REST endpoint** to trigger the workflow,
+- **Docker Compose** to reproduce Temporal + dependencies locally,
+- **tests** covering success, failure, and timeout branches.
 
-The Patient Record System is a microservices-based application that manages patient records using Temporal workflow orchestration. It implements the Saga pattern for distributed transactions, ensuring data consistency across multiple services.
+Although the domain is **patient onboarding**, it directly maps to the **original generic requirement** of "3 external API calls with Saga + timeout + compensations." See the mapping table below.
 
-### Architecture Components
+---
 
-1. **HTTP Service** - REST API gateway for client interactions
-2. **Worker Service** - Temporal workflow and activity implementations
-3. **Commons Module** - Shared DTOs, constants, and interfaces
-4. **Temporal Server** - Workflow orchestration engine
-5. **MongoDB** - Document database for transaction requests
-6. **PostgreSQL** - Relational database for patient, medical, and insurance records
+## 1) Architecture (1-minute tour)
+
+### Workflow
+`CreatePatientWorkflow` orchestrates three steps:
+
+1. **API-A** — *Create Patient Core Record*
+  - External call (e.g., `POST /patients`).
+  - **Compensation:** delete/rollback the created patient record (e.g., `DELETE /patients/{id}`).
+
+2. **API-B** — *Create Medical Record*
+  - External call (e.g., `POST /medical-records`).
+  - **Compensation:** delete/rollback the medical record.
+
+3. **API-C** — *Create Insurance Details*
+  - External call (e.g., `POST /insurance-details`).
+  - **Compensation:** delete/rollback the Insurance Details.
+
+All three steps must complete **within `TRANSACTION_TIMEOUT_SECONDS`**; otherwise the workflow triggers **saga rollbacks** for completed steps.
+
+### Activities
+- `CreatePatientActivity` (and its `...Impl`)
+- `TransactionRequestActivity` (and its `...Impl`)
+- (If split in your code: `MedicalRecordActivity`)
+
+> Each activity has a **do** and a **compensate** method. Compensations are applied in **reverse order** of completed steps, per the Saga pattern.
+
+### REST Trigger
+- `POST /api/transactions/create` launches the workflow with a `PatientDto` (and nested `MedicalRecordDto`, `InsuranceDetailDto`).
+
+---
+
+## 2) Mapping to the Original Requirement
+
+| Requirement (original) | This repo (domain)                                                       | Notes                                                                       |
+|---|--------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| 3 external APIs | A: Create Patient, B: Create Medical Record, C: Create Insurance Details | Replace endpoints with your actual curdcrud.com URLs.                       |
+| Compensations | Delete patient, Delete medical record, Delete insurance details          | Implemented per step; called in reverse on failure/timeout.                 |
+| Global timeout | `TRANSACTION_TIMEOUT_SECONDS` (workflow run timeout)                     | Set via env/properties; exceed => saga rollback.                            |
+| Trigger via REST | `POST /api/transactions/create`                                          | Accepts `PatientDto` (+ nested DTOs).                                       |
+| Docker-compose reproducible | `docker-compose.yml` with Temporal + UI + MongoDB + http + worker        | Bring up infra locally; configure endpoints via env.                        |
+| Tests for success/failure/timeout | JUnit/Mockito + `TestWorkflowExtension` (Temporal SDK)                   | Includes unit & E2E-style tests demonstrating compensation & timeout paths. |
+
+---
 
 ## 📋 Prerequisites
 
@@ -117,7 +159,7 @@ Note: When running locally, update application.yml files to use localhost instea
 - **Port**: 27017
 - **Database**: prs
 - **Collections**:
-    - transaction_requests
+  - transaction_requests
 
 ### PostgreSQL
 - **Host**: localhost (or `postgres` within Docker network)
